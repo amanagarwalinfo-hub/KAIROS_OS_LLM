@@ -1,0 +1,9 @@
+backend/.env
+backend/app/rag/data/*.pdf
+backend/app/rag/data/indexed_book.json
+backend/app/rag/data/index-build.log
+backend/**/__pycache__/
+backend/app/data/*.sqlite3
+*.pyc
+backend/.pytest_cache/
+.pytest_cache/

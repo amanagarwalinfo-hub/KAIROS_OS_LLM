@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KAIROS — Offline AI Tutor for Operating Systems</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    code, pre, .mono { font-family: 'JetBrains Mono', monospace; }
+    .answer-content { font-size: 0.9rem; line-height: 1.65; }
+    .answer-content p { margin: 0.55rem 0; }
+    .answer-content h1, .answer-content h2, .answer-content h3 { color: #f1f5f9; font-size: 1.08em; line-height: 1.4; margin: 0.85rem 0 0.4rem; }
+    .answer-content ul, .answer-content ol { padding-left: 1.4rem; margin: 0.55rem 0; }
+    .answer-content ul { list-style: disc; }
+    .answer-content ol { list-style: decimal; }
+    .answer-content li + li { margin-top: 0.3rem; }
+    .answer-content code { font-size: 0.9em; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 flex flex-col h-screen overflow-hidden">
+
+  <!-- Header -->
+  <header class="bg-slate-900 border-b border-slate-800 px-6 py-3.5 flex items-center justify-between shrink-0">
+    <div class="flex items-center space-x-3">
+      <div class="bg-blue-600/20 text-blue-400 p-2 rounded-lg border border-blue-500/30">
+        <i class="fa-solid fa-microchip text-xl"></i>
+      </div>
+      <div>
+        <div class="flex items-center space-x-2">
+          <h1 class="text-lg font-bold tracking-tight text-white flex items-center space-x-1.5">
+            <span>KAIROS</span><span class="text-blue-400">.gpt</span>
+          </h1>
+          <span class="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30 font-mono font-medium">kairos.gpt</span>
+          <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-medium">100% Deterministic Math</span>
+        </div>
+        <p class="text-xs text-slate-400">AI Operating Systems Tutor powered by kairos.gpt</p>
+      </div>
+    </div>
+
+    <!-- Tutor mode switch -->
+      <div class="flex items-center space-x-3">
+      <div class="flex items-center bg-slate-800/80 p-1 rounded-lg border border-slate-700 text-xs">
+        <button id="learnModeBtn" onclick="setMode('learn')" class="px-3 py-1.5 rounded-md font-medium transition bg-blue-600 text-white shadow">
+          <i class="fa-solid fa-graduation-cap mr-1"></i> Learn Mode
+        </button>
+        <button id="testModeBtn" onclick="setMode('test')" class="px-3 py-1.5 rounded-md font-medium transition text-slate-400 hover:text-white">
+          <i class="fa-solid fa-flask-vial mr-1"></i> Test Mode (Hints Only)
+        </button>
+        <button id="heisenbugModeBtn" onclick="setMode('heisenbug')" class="px-3 py-1.5 rounded-md font-medium transition text-slate-400 hover:text-white">
+          <i class="fa-solid fa-bug mr-1"></i> HEISENBUG
+        </button>
+      </div>
+      <span id="roastModeBadge" class="hidden text-xs px-2 py-1 rounded-full bg-orange-500/15 text-orange-300 border border-orange-500/30 font-medium">🔥 Roast mode</span>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-1 flex overflow-hidden">
+
+    <!-- Curated numerical prompts -->
+    <aside id="curatedPromptSidebar" class="w-80 bg-slate-900/60 border-r border-slate-800 p-4 flex flex-col shrink-0 overflow-y-auto">
+      <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Curated Numerical Prompts</div>
+      <div class="space-y-2">
+        <button onclick="applyNumericalPreset('srtf')" class="w-full text-left p-2.5 rounded-xl bg-slate-800/50 hover:bg-slate-800 border border-slate-700/60 hover:border-blue-500/50 transition group">
+          <div class="flex items-center justify-between text-xs text-blue-400 mb-0.5 font-semibold"><span>SRTF Scheduling</span><i class="fa-solid fa-arrow-right text-[10px] group-hover:translate-x-1 transition-transform"></i></div>
+          <p class="text-[11px] text-slate-300 line-clamp-2">Build the preemptive Gantt chart and calculate waiting and turnaround times.</p>
+        </button>
+        <button onclick="applyNumericalPreset('rr')" class="w-full text-left p-2.5 rounded-xl bg-slate-800/50 hover:bg-slate-800 border border-slate-700/60 hover:border-purple-500/50 transition group">
+          <div class="flex items-center justify-between text-xs text-purple-400 mb-0.5 font-semibold"><span>Round Robin</span><i class="fa-solid fa-arrow-right text-[10px] group-hover:translate-x-1 transition-transform"></i></div>
+          <p class="text-[11px] text-slate-300 line-clamp-2">Trace the ready queue with quantum 2 and find each process's metrics.</p>
+        </button>
+        <button onclick="applyNumericalPreset('sjf')" class="w-full text-left p-2.5 rounded-xl bg-slate-800/50 hover:bg-slate-800 border border-slate-700/60 hover:border-emerald-500/50 transition group">
+          <div class="flex items-center justify-between text-xs text-emerald-400 mb-0.5 font-semibold"><span>SJF Scheduling</span><i class="fa-solid fa-arrow-right text-[10px] group-hover:translate-x-1 transition-transform"></i></div>
+          <p class="text-[11px] text-slate-300 line-clamp-2">Apply non-preemptive shortest-job-first scheduling and calculate averages.</p>
+        </button>
+        <button onclick="applyNumericalPreset('fcfs')" class="w-full text-left p-2.5 rounded-xl bg-slate-800/50 hover:bg-slate-800 border border-slate-700/60 hover:border-amber-500/50 transition group">
+          <div class="flex items-center justify-between text-xs text-amber-400 mb-0.5 font-semibold"><span>FCFS Scheduling</span><i class="fa-solid fa-arrow-right text-[10px] group-hover:translate-x-1 transition-transform"></i></div>
+          <p class="text-[11px] text-slate-300 line-clamp-2">Run first-come, first-served and calculate waiting and turnaround times.</p>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Center Chat Area -->
+    <section class="flex-1 flex flex-col overflow-hidden bg-slate-950">
+      
+      <!-- Messages List -->
+      <div id="chatContainer" class="flex-1 overflow-y-auto p-6 space-y-6">
+        <!-- Welcome Message -->
+        <div class="flex items-start space-x-3 max-w-3xl">
+          <div class="bg-blue-600 text-white rounded-lg p-2 text-sm shrink-0">
+            <i class="fa-solid fa-robot"></i>
+          </div>
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm text-sm text-slate-200 space-y-3">
+            <p class="font-semibold text-white">Hello! I am KAIROS, your Operating Systems tutor.</p>
+            <p class="text-slate-300">
+              Unlike generic AI chatbots that guess numerical questions and hallucinate Gantt charts, I run real OS scheduling and page replacement algorithms directly through my verified solver engine.
+            </p>
+            <p class="text-slate-400 text-xs">
+              Type an Operating Systems question below, or switch to HEISENBUG for error-detection challenges.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dedicated HEISENBUG learning mode -->
+      <div id="heisenbugContainer" class="hidden flex-1 overflow-y-auto p-5 md:p-8">
+        <div class="max-w-4xl mx-auto space-y-5">
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h2 class="text-2xl font-bold text-white"><i class="fa-solid fa-bug text-fuchsia-400 mr-2"></i>HEISENBUG</h2>
+              <p class="text-sm text-slate-400 mt-1">Find the one error, explain why it is wrong, and give the correction.</p>
+            </div>
+            <div id="heisenbugProgress" class="text-xs text-slate-300 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2">Loading progress…</div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-3 bg-slate-900 border border-slate-800 rounded-xl p-3">
+            <label class="text-xs text-slate-400">Topic
+              <select id="heisenbugTopic" class="ml-2 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white">
+                <option value="">Personalized</option>
+                <option>CPU scheduling</option><option>Deadlocks</option><option>Memory management</option>
+                <option>Page replacement</option><option>Process synchronization</option>
+              </select>
+            </label>
+            <label class="text-xs text-slate-400">Difficulty
+              <select id="heisenbugDifficulty" class="ml-2 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white">
+                <option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option>
+              </select>
+            </label>
+            <button onclick="loadHeisenbugChallenge()" class="ml-auto bg-fuchsia-700 hover:bg-fuchsia-600 text-white text-sm font-semibold px-4 py-2 rounded-lg"><i class="fa-solid fa-shuffle mr-1"></i>New Challenge</button>
+          </div>
+
+          <div id="heisenbugChallengeCard" class="bg-slate-900 border border-slate-800 rounded-2xl p-5 md:p-6 space-y-4">
+            <p class="text-slate-400">Choose a difficulty and load a challenge to begin.</p>
+          </div>
+
+          <div id="heisenbugAttemptArea" class="hidden bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
+            <label for="heisenbugAnswer" class="block text-sm font-semibold text-slate-200">Your diagnosis, reasoning, and correction</label>
+            <textarea id="heisenbugAnswer" rows="4" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-fuchsia-500" placeholder="Identify the incorrect step, explain why it is wrong, and write the correction…"></textarea>
+            <div class="flex flex-wrap gap-2">
+              <button id="heisenbugHintBtn" onclick="requestHeisenbugHint()" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-sm px-4 py-2 rounded-lg"><i class="fa-regular fa-lightbulb mr-1"></i>Progressive Hint</button>
+              <button id="heisenbugSubmitBtn" onclick="submitHeisenbugAnswer()" class="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-4 py-2 rounded-lg"><i class="fa-solid fa-check mr-1"></i>Check My Reasoning</button>
+              <button onclick="revealHeisenbugSolution()" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-sm px-4 py-2 rounded-lg">Reveal Solution</button>
+            </div>
+            <div id="heisenbugHints" class="space-y-2"></div>
+            <div id="heisenbugResult" class="hidden"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Input Bar -->
+      <div id="chatInputBar" class="p-4 bg-slate-900/80 border-t border-slate-800">
+        <form id="chatForm" onsubmit="handleSend(event)" class="max-w-4xl mx-auto flex items-center space-x-3">
+          <div class="hidden sm:flex items-center space-x-1.5 bg-slate-800/90 border border-slate-700/80 px-3 py-2.5 rounded-xl text-xs font-mono text-slate-300 shrink-0">
+            <i class="fa-solid fa-brain text-blue-400"></i>
+            <span>model:</span>
+            <span class="text-blue-400 font-bold">kairos.gpt</span>
+          </div>
+          <input 
+            type="text" 
+            id="queryInput" 
+            autocomplete="off"
+            placeholder="Ask kairos.gpt any OS question (e.g. 'what is starvation', 'what is segmentation', SRTF numerical)..." 
+            class="flex-1 bg-slate-950 border border-slate-700/80 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition shadow-inner"
+          />
+          <button 
+            type="submit" 
+            id="sendBtn"
+            class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-5 py-3 rounded-xl text-sm flex items-center space-x-2 transition shadow-lg shadow-blue-600/20 disabled:opacity-50"
+          >
+            <span>Ask kairos.gpt</span>
+            <i class="fa-solid fa-paper-plane text-xs"></i>
+          </button>
+        </form>
+      </div>
+
+    </section>
+
+
+
+  </main>
+
+  <script>
+    let currentMode = 'learn';
+    let roastMode = localStorage.getItem('kairosRoastMode') === 'true';
+    const heisenbugStudentId = localStorage.getItem('kairosStudentId') || (crypto.randomUUID ? crypto.randomUUID() : 'student-' + Date.now());
+    localStorage.setItem('kairosStudentId', heisenbugStudentId);
+    let activeHeisenbugChallenge = null;
+    let heisenbugHintsUsed = 0;
+
+    function updateRoastModeBadge() {
+      document.getElementById('roastModeBadge').classList.toggle('hidden', !roastMode);
+    }
+    updateRoastModeBadge();
+
+    function setMode(mode) {
+      currentMode = mode;
+      const buttons = { learn: 'learnModeBtn', test: 'testModeBtn', heisenbug: 'heisenbugModeBtn' };
+      for (const [key, id] of Object.entries(buttons)) {
+        const button = document.getElementById(id);
+        button.className = key === mode
+          ? `px-3 py-1.5 rounded-md font-medium transition ${key === 'heisenbug' ? 'bg-fuchsia-700' : key === 'test' ? 'bg-purple-600' : 'bg-blue-600'} text-white shadow`
+          : 'px-3 py-1.5 rounded-md font-medium transition text-slate-400 hover:text-white';
+      }
+      const isHeisenbug = mode === 'heisenbug';
+      document.getElementById('curatedPromptSidebar').classList.toggle('hidden', isHeisenbug);
+      document.getElementById('chatContainer').classList.toggle('hidden', isHeisenbug);
+      document.getElementById('chatInputBar').classList.toggle('hidden', isHeisenbug);
+      document.getElementById('heisenbugContainer').classList.toggle('hidden', !isHeisenbug);
+      if (isHeisenbug && !activeHeisenbugChallenge) loadHeisenbugChallenge();
+    }
+
+    function applyNumericalPreset(algorithm) {
+      const examples = {
+        srtf: "Use preemptive SRTF for P1, P2, P3, and P4 with arrival times 0, 1, 2, 3 and burst times 5, 3, 8, 6. Draw the Gantt chart and calculate each process's completion time, turnaround time, and waiting time, plus the averages.",
+        rr: "Use Round Robin with quantum 2 for P1, P2, P3, and P4 with arrival times 0, 1, 2, 3 and burst times 5, 3, 8, 6. Draw the Gantt chart and calculate each process's completion time, turnaround time, and waiting time, plus the averages.",
+        sjf: "Use non-preemptive SJF for P1, P2, P3, and P4 with arrival times 0, 1, 2, 3 and burst times 5, 3, 8, 6. Draw the Gantt chart and calculate each process's completion time, turnaround time, and waiting time, plus the averages.",
+        fcfs: "Use FCFS for P1, P2, P3, and P4 with arrival times 0, 1, 2, 3 and burst times 5, 3, 8, 6. Draw the Gantt chart and calculate each process's completion time, turnaround time, and waiting time, plus the averages."
+      };
+      const input = document.getElementById('queryInput');
+      input.value = examples[algorithm];
+      document.getElementById('chatForm').requestSubmit();
+    }
+
+    function updateHeisenbugProgress(progress) {
+      const weak = progress.weakest_topic ? ` · Focus: ${escapeHtml(progress.weakest_topic)}` : '';
+      const misconceptions = progress.misconceptions?.length
+        ? ` · Review: ${escapeHtml(progress.misconceptions[0].misconception)}` : '';
+      document.getElementById('heisenbugProgress').innerHTML =
+        `${progress.attempts} attempts · ${progress.accuracy}% accuracy · ${progress.hint_uses} hints${weak}${misconceptions}`;
+    }
+
+    async function loadHeisenbugChallenge(next = null) {
+      const topic = next?.topic ?? document.getElementById('heisenbugTopic').value;
+      const difficulty = next?.difficulty ?? document.getElementById('heisenbugDifficulty').value;
+      if (next) {
+        document.getElementById('heisenbugTopic').value = next.topic;
+        document.getElementById('heisenbugDifficulty').value = next.difficulty;
+      }
+      const params = new URLSearchParams({ student_id: heisenbugStudentId, difficulty });
+      if (topic) params.set('topic', topic);
+      const card = document.getElementById('heisenbugChallengeCard');
+      card.innerHTML = '<p class="text-slate-400">Preparing a solver-checked challenge…</p>';
+      document.getElementById('heisenbugAttemptArea').classList.add('hidden');
+      try {
+        const response = await fetch(`/api/heisenbug/challenge?${params}`);
+        if (!response.ok) throw new Error(`Challenge request failed (${response.status})`);
+        const challenge = await response.json();
+        activeHeisenbugChallenge = challenge;
+        heisenbugHintsUsed = 0;
+        updateHeisenbugProgress(challenge.progress);
+        card.innerHTML = `
+          <div class="flex flex-wrap items-center gap-2 text-xs">
+            <span class="px-2 py-1 rounded bg-fuchsia-500/15 text-fuchsia-300">${escapeHtml(challenge.topic)}</span>
+            <span class="px-2 py-1 rounded bg-slate-800 text-slate-300">${escapeHtml(challenge.difficulty)}</span>
+            <span class="text-slate-500">One intentional error</span>
+          </div>
+          <h3 class="text-xl font-bold text-white">${escapeHtml(challenge.title)}</h3>
+          <p class="text-slate-300">${escapeHtml(challenge.prompt)}</p>
+          <ol class="list-decimal pl-6 space-y-2 font-mono text-sm text-slate-200">${challenge.lines.map(line => `<li class="pl-1 break-words">${escapeHtml(line)}</li>`).join('')}</ol>
+          <p class="text-xs text-slate-500">Describe the incorrect line or step, explain why it fails, and give the correction.</p>`;
+        document.getElementById('heisenbugAttemptArea').classList.remove('hidden');
+        document.getElementById('heisenbugAnswer').value = '';
+        document.getElementById('heisenbugHints').innerHTML = '';
+        document.getElementById('heisenbugResult').innerHTML = '';
+        document.getElementById('heisenbugResult').classList.add('hidden');
+        document.getElementById('heisenbugHintBtn').disabled = false;
+      } catch (error) {
+        card.innerHTML = `<p class="text-rose-300">Could not load a challenge: ${escapeHtml(error.message)}. Check that the KAIROS backend is running.</p>`;
+      }
+    }
+
+    async function requestHeisenbugHint() {
+      if (!activeHeisenbugChallenge || heisenbugHintsUsed >= 3) return;
+      const level = heisenbugHintsUsed + 1;
+      const response = await fetch('/api/heisenbug/hint', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ student_id: heisenbugStudentId, challenge_id: activeHeisenbugChallenge.id, level })
+      });
+      const data = await response.json();
+      if (!response.ok) return;
+      heisenbugHintsUsed = data.level;
+      document.getElementById('heisenbugHints').insertAdjacentHTML('beforeend',
+        `<div class="bg-amber-950/40 border border-amber-800/50 rounded-lg p-3 text-sm text-amber-100"><b>Hint ${data.level}:</b> ${escapeHtml(data.hint)}</div>`);
+      document.getElementById('heisenbugHintBtn').disabled = heisenbugHintsUsed >= data.total;
+    }
+
+    async function submitHeisenbugAnswer() {
+      if (!activeHeisenbugChallenge) return;
+      const answer = document.getElementById('heisenbugAnswer').value.trim();
+      if (!answer) return;
+      const button = document.getElementById('heisenbugSubmitBtn');
+      button.disabled = true;
+      button.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>Evaluating…';
+      try {
+        const response = await fetch('/api/heisenbug/submit', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ student_id: heisenbugStudentId, challenge_id: activeHeisenbugChallenge.id, answer, hint_count: heisenbugHintsUsed })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.detail || 'Evaluation failed');
+        const box = document.getElementById('heisenbugResult');
+        box.className = 'bg-slate-950 border border-slate-700 rounded-xl p-4 space-y-3';
+        box.innerHTML = `
+          <div class="flex items-center justify-between"><h3 class="font-bold ${result.correct ? 'text-emerald-300' : 'text-amber-300'}">${result.correct ? 'Good catch!' : 'Review the correction'}</h3><span class="text-xs text-slate-400">Reasoning score: ${result.score}/100</span></div>
+          <p class="text-sm text-slate-200">${escapeHtml(result.feedback)}</p>
+          <div class="text-xs text-slate-400">Diagnosis ${result.diagnosis_identified ? '✓' : '○'} · Correction ${result.correction_provided ? '✓' : '○'} · Reasoning ${result.reasoning_explained ? '✓' : '○'}</div>
+          <div class="border-t border-slate-800 pt-3"><p class="text-sm font-semibold text-white">Verified correction</p><p class="text-sm text-emerald-200 mt-1">${escapeHtml(result.solution)}</p><p class="text-sm text-slate-300 mt-2">${escapeHtml(result.explanation)}</p></div>
+          ${result.misconception ? `<p class="text-xs text-amber-300">Review topic: ${escapeHtml(result.misconception)}</p>` : ''}
+          <div class="text-xs text-slate-400">Progress: ${result.progress.correct}/${result.progress.attempts} correct · ${result.progress.hint_uses} hints used</div>
+          <button onclick='loadHeisenbugChallenge(${JSON.stringify(result.followup)})' class="bg-fuchsia-700 hover:bg-fuchsia-600 text-white text-sm font-semibold px-4 py-2 rounded-lg"><i class="fa-solid fa-arrow-right mr-1"></i>Follow-up challenge</button>`;
+        box.classList.remove('hidden');
+        updateHeisenbugProgress(result.progress);
+      } catch (error) {
+        const box = document.getElementById('heisenbugResult');
+        box.className = 'text-sm text-rose-300';
+        box.textContent = error.message;
+        box.classList.remove('hidden');
+      } finally {
+        button.disabled = false;
+        button.innerHTML = '<i class="fa-solid fa-check mr-1"></i>Check My Reasoning';
+      }
+    }
+
+    async function revealHeisenbugSolution() {
+      if (!activeHeisenbugChallenge) return;
+      const response = await fetch(`/api/heisenbug/reveal/${encodeURIComponent(activeHeisenbugChallenge.id)}`);
+      const solution = await response.json();
+      const box = document.getElementById('heisenbugResult');
+      box.className = 'bg-slate-950 border border-slate-700 rounded-xl p-4 space-y-2';
+      box.innerHTML = `<h3 class="font-bold text-amber-300">Verified answer</h3><p class="text-sm text-emerald-200">${escapeHtml(solution.solution)}</p><p class="text-sm text-slate-300">${escapeHtml(solution.explanation)}</p>`;
+      box.classList.remove('hidden');
+    }
+
+    async function handleSend(e) {
+      e.preventDefault();
+      const input = document.getElementById('queryInput');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const command = text.toLowerCase();
+      if (command === '/roast' || command === '/roast on' || command === '/roast off') {
+        appendUserMessage(text);
+        input.value = '';
+        roastMode = command !== '/roast off';
+        localStorage.setItem('kairosRoastMode', String(roastMode));
+        updateRoastModeBadge();
+        appendModeNotice(roastMode
+          ? '🔥 Roast mode is on. Expect gentle OS jokes; the textbook facts and calculations stay serious.'
+          : 'Roast mode is off. KAIROS is back to its usual tutor style.');
+        return;
+      }
+
+      appendUserMessage(text);
+      input.value = '';
+
+      const sendBtn = document.getElementById('sendBtn');
+      sendBtn.disabled = true;
+
+      const loadingId = 'loading-' + Date.now();
+      appendLoadingIndicator(loadingId);
+
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: text, mode: currentMode, roast_mode: roastMode })
+        });
+        const data = await res.json();
+        removeLoadingIndicator(loadingId);
+        appendBotMessage(data);
+      } catch (err) {
+        removeLoadingIndicator(loadingId);
+        appendErrorMessage("Failed to connect to the KAIROS backend server.");
+      } finally {
+        sendBtn.disabled = false;
+      }
+    }
+
+    function appendModeNotice(text) {
+      const container = document.getElementById('chatContainer');
+      const message = document.createElement('div');
+      message.className = 'flex items-start space-x-3 max-w-3xl';
+      const bubble = document.createElement('div');
+      bubble.className = 'bg-orange-950/40 border border-orange-800/50 rounded-2xl px-4 py-3 text-sm text-orange-100';
+      bubble.textContent = text;
+      message.innerHTML = '<div class="bg-orange-500 text-white rounded-lg p-2 text-sm shrink-0">🔥</div>';
+      message.appendChild(bubble);
+      container.appendChild(message);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function appendUserMessage(text) {
+      const container = document.getElementById('chatContainer');
+      const msgDiv = document.createElement('div');
+      msgDiv.className = "flex justify-end max-w-3xl ml-auto";
+      msgDiv.innerHTML = `
+        <div class="bg-blue-600 text-white rounded-2xl rounded-tr-none px-4 py-3 text-sm shadow-md">
+          ${escapeHtml(text)}
+        </div>
+      `;
+      container.appendChild(msgDiv);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function appendErrorMessage(text) {
+      const container = document.getElementById('chatContainer');
+      const msgDiv = document.createElement('div');
+      msgDiv.className = "flex items-start space-x-3 max-w-3xl";
+      msgDiv.innerHTML = `
+        <div class="bg-rose-600 text-white rounded-lg p-2 text-sm shrink-0">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+        <div class="bg-rose-950/40 border border-rose-800/60 rounded-2xl p-4 text-sm text-rose-300">
+          ${text}
+        </div>
+      `;
+      container.appendChild(msgDiv);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function appendLoadingIndicator(id) {
+      const container = document.getElementById('chatContainer');
+      const msgDiv = document.createElement('div');
+      msgDiv.id = id;
+      msgDiv.className = "flex items-start space-x-3 max-w-3xl";
+      msgDiv.innerHTML = `
+        <div class="bg-blue-600 text-white rounded-lg p-2 text-sm shrink-0 animate-pulse">
+          <i class="fa-solid fa-microchip"></i>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 text-xs text-slate-300 flex items-center space-x-2.5">
+          <i class="fa-solid fa-circle-notch fa-spin text-blue-400 text-sm"></i>
+          <span><b>kairos.gpt</b> is analyzing textbook and generating response...</span>
+        </div>
+      `;
+      container.appendChild(msgDiv);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function removeLoadingIndicator(id) {
+      const el = document.getElementById(id);
+      if (el) el.remove();
+    }
+
+    function appendBotMessage(data) {
+      const container = document.getElementById('chatContainer');
+      const msgDiv = document.createElement('div');
+      msgDiv.className = "flex items-start space-x-3 max-w-4xl";
+
+      let visualBlock = "";
+      if (data.solution_data && data.solution_data.gantt_chart) {
+        visualBlock = renderGanttChart(data.solution_data.gantt_chart, data.solution_data);
+      }
+
+      let practiceBlock = "";
+      if (data.practice_question) {
+        practiceBlock = `
+          <div class="mt-4 p-3 bg-blue-950/40 border border-blue-800/50 rounded-xl text-xs space-y-1">
+            <div class="font-semibold text-blue-300 flex items-center space-x-1.5">
+              <i class="fa-solid fa-lightbulb text-amber-400"></i>
+              <span>Next Challenge for You:</span>
+            </div>
+            <p class="text-slate-300">${escapeHtml(data.practice_question)}</p>
+          </div>
+        `;
+      }
+
+      const isOutOfSyllabus = data.query_type === 'out_of_syllabus';
+      const isNumerical = data.query_type === 'numerical';
+      const badgeColor = isOutOfSyllabus ? 'bg-rose-500/20 text-rose-400 border-rose-500/30' : 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+      
+      let verifyBadge = '';
+      const roastBadge = data.roast_mode ? '<span class="px-2 py-0.5 rounded bg-orange-500/15 text-orange-300 border border-orange-500/30 font-medium">🔥 Roast mode</span>' : '';
+      if (isOutOfSyllabus) {
+        verifyBadge = '<span class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 font-mono text-[10px]">Strict Syllabus Guardrail: Rejected</span>';
+      } else if (isNumerical) {
+        verifyBadge = '<span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-mono text-[10px]">Verified: 100% Math Match</span>';
+      } else {
+        verifyBadge = '<span class="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono text-[10px]">Verified: Course Notes Match</span>';
+      }
+
+      const formattedExplanation = data.explanation.replace(/^(Hello! I am KAIROS,[^\n]*)$/m, '**$1**');
+      const parsedExplanation = (typeof marked !== 'undefined') ? marked.parse(formattedExplanation) : escapeHtml(formattedExplanation);
+
+      msgDiv.innerHTML = `
+        <div class="${isOutOfSyllabus ? 'bg-rose-600' : 'bg-blue-600'} text-white rounded-lg p-2 text-sm shrink-0">
+          <i class="fa-solid ${isOutOfSyllabus ? 'fa-shield-halved' : 'fa-microchip'}"></i>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm text-sm text-slate-200 space-y-3 flex-1 overflow-x-auto">
+          <div class="flex items-center space-x-2 text-xs mb-1 flex-wrap gap-y-1">
+            <span class="px-2 py-0.5 rounded bg-blue-900/50 text-blue-300 font-mono text-[10px] border border-blue-700/50"><i class="fa-solid fa-sparkles text-amber-400 mr-1"></i>kairos.gpt</span>
+            <span class="px-2 py-0.5 rounded ${badgeColor} border font-medium">${data.topic}</span>
+            ${data.algorithm ? `<span class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-medium">${data.algorithm}</span>` : ''}
+            ${verifyBadge}
+            ${roastBadge}
+          </div>
+
+          <div class="answer-content text-slate-300 space-y-3">${parsedExplanation}</div>
+
+          ${visualBlock}
+          ${practiceBlock}
+        </div>
+      `;
+      container.appendChild(msgDiv);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function renderGanttChart(gantt, solution) {
+      if (!gantt || gantt.length === 0) return "";
+      const totalTime = gantt[gantt.length - 1].end;
+      const colors = ['bg-blue-600', 'bg-indigo-600', 'bg-emerald-600', 'bg-amber-600', 'bg-purple-600', 'bg-rose-600', 'bg-cyan-600'];
+
+      let blocks = "";
+      gantt.forEach((block, idx) => {
+        const duration = block.end - block.start;
+        const widthPercent = (duration / totalTime) * 100;
+        const color = block.pid === 'IDLE' ? 'bg-slate-700' : colors[idx % colors.length];
+
+        blocks += `
+          <div style="width: ${widthPercent}%" class="${color} h-10 border-r border-slate-900 flex items-center justify-center text-xs font-bold text-white shadow-inner" title="${block.pid}: ${block.start} -> ${block.end}">
+            ${block.pid}
+          </div>
+        `;
+      });
+
+      return `
+        <div class="mt-4 pt-3 border-t border-slate-800">
+          <div class="text-xs font-semibold text-slate-300 mb-2 flex items-center justify-between">
+            <span>Visual Gantt Chart Timeline</span>
+            <span class="text-slate-500 text-[11px]">Total Time: ${totalTime} units</span>
+          </div>
+          <div class="flex rounded-lg overflow-hidden border border-slate-700 w-full mb-1">
+            ${blocks}
+          </div>
+          <div class="flex justify-between text-[10px] text-slate-400 font-mono px-1">
+            <span>t=0</span>
+            <span>t=${totalTime}</span>
+          </div>
+        </div>
+      `;
+    }
+
+    function escapeHtml(text) {
+      return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+  </script>
+</body>
+</html>
